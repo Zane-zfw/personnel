@@ -48,7 +48,7 @@ typedef struct{
 	char sex[10];//保存性别
 	char address[20];//保存地址
 	int pthone;//保存手机号
-	int level;//保存员工等级
+	char level[15];//保存员工等级
 	int money;//保存工资
 	int state; //用户状态，0:未登录 1:已登录
 }MSG;	//用户表信息
@@ -293,7 +293,7 @@ int do_user(int sfd)
 	while(getchar()!=10);
 
 	printf("输入员工等级(由低到高:1~7)>>");
-	scanf("%d",&msg.level);
+	scanf("%s",msg.level);
 	while(getchar()!=10);
 
 	printf("输入工资>>");
@@ -827,9 +827,93 @@ int do_dele_data(int sfd)
 int do_up_data(int sfd)
 {
 	//{{{
-	
-	
-	
+	char buf[N]="";
+	bzero(buf,sizeof(buf));
+	buf[0]=UP;      
+	if(send(sfd,buf,sizeof(buf),0)<0)   //发送协议
+	{
+		ERR_LOG("send");
+		return -1;
+	}
+	//-----------------------------------------------
+		char choose[15];
+		printf("请输入要修改的账户>> ");
+		scanf("%s",choose);
+		while(getchar()!=10);
+
+		send(sfd,choose,sizeof(choose),0);
+
+		char chinese[N];
+		int i;
+		bzero(chinese,sizeof(chinese));
+		recv(sfd,chinese,N,0); //接受反馈
+		i=strcmp(chinese,"没有该用户，不必修改");
+		if(i=0)
+		{
+			printf("没有该用户  不必修改\n");
+			return -1;
+		}
+		else
+		{
+			printf("%s\n",chinese);
+
+
+		//改数据
+
+		printf("请输入新信息>> \n");
+	MSG msg;
+	printf("输入原账号>>");
+	scanf("%s",msg.use);
+	while(getchar()!=10);
+
+/*	printf("输入新密码>>");
+	scanf("%s",msg.password);
+	while(getchar()!=10);
+*/
+	printf("输入姓名>>");
+	scanf("%s",msg.username);
+	while(getchar()!=10);
+
+	printf("输入年龄>>");
+	scanf("%d",&msg.age);
+	while(getchar()!=10);
+
+
+	printf("输入性别(男:GG/女:MM)>>");
+	scanf("%s",msg.sex);
+	while(getchar()!=10);
+
+
+	printf("输入地址>>");
+	scanf("%s",msg.address);
+	while(getchar()!=10);
+
+	printf("输入手机号>>");
+	scanf("%d",&msg.pthone);
+	while(getchar()!=10);
+
+	printf("输入员工等级(由低到高:1~7)>>");
+	scanf("%s",msg.level);
+	while(getchar()!=10);
+
+	printf("输入工资>>");
+	scanf("%d",&msg.money);
+	while(getchar()!=10);
+
+	int res;
+	msg.state=0;
+	res=send(sfd,&msg,sizeof(msg),0);
+	if(res<0)
+	{
+		ERR_LOG("recv");
+		return -1;
+	}
+
+	//读取服务器的反馈
+	char buff[N];
+	recv(sfd,buff,sizeof(buff),0);
+	printf("%s\n",buff);	
+		}
 	return 0;
 	//}}}
 }

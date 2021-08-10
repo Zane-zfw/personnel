@@ -68,7 +68,7 @@ typedef struct{
 	char sex[10];//保存性别
 	char address[20];//保存地址
 	int pthone;//保存手机号
-	int level;//保存员工等级
+	char level[15];//保存员工等级
 	int money;//保存工资
 	int state; //用户状态，0:未登录 1:已登录
 }MSG;	//用户表信息
@@ -228,6 +228,7 @@ int ser(int sfd)
 //线程
 void *callBackHandler(void *arg)
 {
+	//{{{
 	sqlite3 *db=NULL;
 	sqlite3_open("./personnel.db",&db);
 	__msgInfo mmm=(*(__msgInfo *)arg);
@@ -273,7 +274,7 @@ END:
 	close(newfd);
 	pthread_exit(NULL);//退出
 	return 0;
-
+	//}}}
 }
 
 //注册
@@ -330,7 +331,7 @@ int do_user(int newfd,sqlite3 *db)
 	char *errmsg;
 	memset(&msg,0,sizeof(msg));
 	int recv_reg=recv(newfd,&msg,sizeof(msg),0);  //读取客户端的用户信息
-	sprintf(sql,"insert into user values('%s','%s','%s',%d,'%s','%s',%d,%d,%d,%d)",msg.use,msg.password,msg.username,msg.age,msg.sex,msg.address,msg.pthone,msg.level,msg.money,msg.state);
+	sprintf(sql,"insert into user values('%s','%s','%s',%d,'%s','%s',%d,'%s',%d,%d)",msg.use,msg.password,msg.username,msg.age,msg.sex,msg.address,msg.pthone,msg.level,msg.money,msg.state);
 	exe=sqlite3_exec(db,sql,NULL,NULL,&errmsg);
 	if(exe!=0)
 	{
@@ -739,9 +740,11 @@ int do_up_root(int newfd,sqlite3 *db,char *name,int *st)
 			do_query_all(newfd,db,name);
 			break;
 		case 'U':
+			//修改信息
 			do_up_data(newfd,db,name);
 			break;
 		case 'D':
+			//删除信息
 			do_dele_data(newfd,db,name);
 			break;
 		case 'E':
@@ -922,8 +925,87 @@ int do_up_data(int newfd,sqlite3 *db,char *name)
 {
 	//{{{
 	
+	char english[N]="";
+	bzero(english,sizeof(english));
+	int recv_len=recv(newfd,english,N,0);//读取客户段
+
+	char *errmsg=NULL;
+	char sql[512]="";
+	char sqll[512]="";
+	char buff[N]="没有该用户，不必修改";
+	char **dpresult;
+	int row,column;
 	
+	sprintf(sqll,"select *from user where use='%s'",english);
+	if(sqlite3_get_table(db,sqll,&dpresult,&row,&column,&errmsg))//查找单词
+	{
+		printf("查询报错\n");
+	}
 	
+	if(row==0)
+	{
+		printf("没有该用户 不必修改\n");
+		send(newfd,buff,sizeof(buff),0);
+	}
+	else
+	{
+		
+		char buf[N]="";
+		char sqq[N]="查询完毕";
+		int i=1,j=0;
+		bzero(buf,sizeof(buf));
+		strcat(buf,"姓名:");
+		strcat(buf,dpresult[12]);
+		strcat(buf,"   ");
+		strcat(buf,"年龄:");
+		strcat(buf,dpresult[13]);
+		strcat(buf,"   ");
+		strcat(buf,"性别:");
+		strcat(buf,dpresult[14]);
+		strcat(buf,"\n");
+		strcat(buf,"地址:");
+		strcat(buf,dpresult[15]);
+		strcat(buf,"   ");
+		strcat(buf,"电话:");
+		strcat(buf,dpresult[16]);
+		strcat(buf,"   ");
+		strcat(buf,"等级:");
+		strcat(buf,dpresult[17]);
+		strcat(buf,"   ");
+		strcat(buf,"工资:");
+		strcat(buf,dpresult[18]);
+		strcat(buf,"\n");
+		strcat(buf,"\n");
+		//查询完毕
+		send(newfd,buf,sizeof(buf),0);
+	}
+
+
+	char sqql[512]="";
+	MSG msg;
+	int exe;
+	memset(&msg,0,sizeof(msg));
+	int recv_reg=recv(newfd,&msg,sizeof(msg),0);  //读取客户端的用户信息
+	sprintf(sqql,"update user set name='%s' and age='%d' and sex='%s' and address='%s' and pthone='%d' and level='%s' and money='%d' where use='%s'",\
+																			msg.username,msg.age,msg.sex,msg.address,msg.pthone,msg.level,msg.money,msg.use);
+	exe=sqlite3_exec(db,sqql,NULL,NULL,&errmsg);
+	if(exe!=0)
+	{
+		printf("账号 %s 修改失败 (原因已反馈)\n",msg.use);
+		printf("%s\n",errmsg);
+		char buf2[N]="修改失败";
+		send(newfd,buf2,sizeof(buf2),0);
+		return -1;
+	}
+	else
+	{
+		//反馈客户端
+		char buf[N]="修改成功";
+		send(newfd,buf,sizeof(buf),0);
+
+		printf("用户 %s  账号 %s 的信息已修改\n",msg.username,msg.use);
+	}
+
 	return 0;
 	//}}}
 }
