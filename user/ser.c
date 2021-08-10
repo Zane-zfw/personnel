@@ -40,6 +40,13 @@ int do_REG(int newfd,sqlite3 *);
 int do_user(int newfd,sqlite3 *);
 int do_root(int newfd,sqlite3 *);
 void *callBackHandler(void *arg);
+int do_LOGIN(int newfd,sqlite3 *,char *name,int *st);
+int do_userlogin(int newfd,sqlite3 *,char *name,int *st);
+int do_rootlogin(int newfd,sqlite3 *,char *name,int *st);
+int do_up_login(int newfd,sqlite3 *,char *name,int *st);
+int do_query(int newfd,sqlite3 *,char *name);
+int do_up_root(int newfd,sqlite3 *,char *name,int *st);
+int do_query_all(int newfd,sqlite3 *,char *name);
 
 //线程需要用到
 typedef struct{         
@@ -246,10 +253,7 @@ void *callBackHandler(void *arg)
 			do_REG(newfd,db);//注册
 			break;
 		case 'L':
-			/*	if(5==do_LOGIN(newfd,db,name,&st))//登录
-				{
-				do_up_login(newfd,db,name,&st,his);//登陆后的功能
-				}*/
+			do_LOGIN(newfd,db,name,&st);	//登录
 			break;
 		case 'E':
 			goto END; //退出
@@ -308,7 +312,7 @@ int do_REG(int newfd,sqlite3 *db)
 
 	}
 	return 0;
-//}}}
+//}}}z
 }
 
 //注册普通用户
@@ -346,7 +350,7 @@ int do_user(int newfd,sqlite3 *db)
 	//}}}
 }
 
-
+//注册管理用户
 int do_root(int newfd,sqlite3 *db)
 {
 
@@ -389,4 +393,473 @@ int do_root(int newfd,sqlite3 *db)
 	//}}}
 }
 
+//登录
+int do_LOGIN(int newfd,sqlite3 *db,char *name,int *st)
+{
+	//{{{
+	
+	char buf[N]="";
+	char his[N]="";
+	while(1)
+	{
+		bzero(buf,sizeof(buf));
+		int recv_len=recv(newfd,buf,N,0);
+		if(recv_len<0)
+		{
+			ERR_LOG("recv");
+			break;
+		}
+		else if(0==recv_len)
+		{
+			printf("对方关闭\n");
+			break;
+		}
+	
+		switch(buf[0])
+		{
+		case 1:
+			if(5==do_userlogin(newfd,db,name,st))//登录普通用户
+			{
+				do_up_login(newfd,db,name,st);//登陆后的功能
+			}
+			break;
+		case 2:
+			if(5==do_rootlogin(newfd,db,name,st))//管理员登录
+			{
+				do_up_root(newfd,db,name,st);
+			}
+			break;
+		case 0:     
+			return -1;	//返回上级
+		default:
+			printf("输入错误\n");
 
+		}
+	}
+	return 0;
+	//}}}
+}
+
+
+//登录普通用户
+int do_userlogin(int newfd,sqlite3 *db,char *name,int *st)
+{
+	//{{{
+	char *errmsg=NULL;
+	char buf[N]="";
+	int i,j;
+	char sql[N]="";
+	char sqll[N]="";
+	char ssq[N]="";
+	char buff[N]="该用户未注册，请注册后再来尝试登录";
+	char aaa[N]="密码不正确";
+	char **dpresult;
+	int row,column;
+
+	MSG msg;
+
+	int recv_reg=recv(newfd,&msg,sizeof(msg),0);  //读取客户端的用户信息
+	strcpy(name,msg.use);
+	memcpy(&st,&(msg.state),4);
+	sprintf(sql,"select *from user where use='%s'",msg.use);
+	sqlite3_get_table(db,sql,&dpresult,&row,&column,&errmsg);
+
+	if(row==0)
+	{
+		printf("用户 %s 未注册(错误已反馈)\n",msg.username);
+		send(newfd,buff,sizeof(buff),0);
+	}
+	else
+	{
+		//跟密码做比较
+		int str;
+		str=strcmp(msg.password,dpresult[11]);
+		if(str!=0)
+		{
+			//密码错误
+			printf("账号 %s 的密码错误(错误已反馈)\n",msg.use);
+			send(newfd,aaa,sizeof(aaa),0);
+		}
+		else
+		{	
+			int ato;
+			ato=atoi(dpresult[19]);
+			//比较状态位
+			if(ato==1)
+			{   
+				//重复登录
+				printf("账号 %s 重复登录(错误已反馈)\n",msg.use);
+				char q[N]="重复登录，请重新登录";
+				send(newfd,q,sizeof(q),0);
+			}
+
+			else
+			{
+				//登录成功 
+				msg.state=1;
+				sprintf(ssq,"update user set state=%d where use='%s'",msg.state,msg.use);
+				if(sqlite3_exec(db,ssq,NULL,NULL,&errmsg)==0);
+				{
+					printf("登录状态修改成功\n");
+				}
+				char qq[N]="登录成功";
+				send(newfd,qq,sizeof(qq),0);
+				sqlite3_free_table(dpresult);//释放
+				return 5;
+			}
+
+		}
+	}	
+	
+	
+	
+	return 0;
+	//}}}
+}
+
+//管理员登录
+int do_rootlogin(int newfd,sqlite3 *db,char *name,int *st)
+{
+	//{{{
+	
+	char *errmsg=NULL;
+	char buf[N]="";
+	int i,j;
+	char sql[N]="";
+	char sqll[N]="";
+	char ssq[N]="";
+	char buff[N]="该用户未注册，请注册后再来尝试登录";
+	char aaa[N]="密码不正确";
+	char **dpresult;
+	int row,column;
+
+	ROOT msg;
+
+	int recv_reg=recv(newfd,&msg,sizeof(msg),0);  //读取客户端的用户信息
+	strcpy(name,msg.use);
+	memcpy(&st,&(msg.state),4);
+	sprintf(sql,"select *from root where use='%s'",msg.use);
+	sqlite3_get_table(db,sql,&dpresult,&row,&column,&errmsg);
+
+	if(row==0)
+	{
+		printf("用户 %s 未注册(错误已反馈)\n",msg.username);
+		send(newfd,buff,sizeof(buff),0);
+	}
+	else
+	{
+		//跟密码做比较
+		int str;
+		str=strcmp(msg.password,dpresult[6]);
+		if(str!=0)
+		{
+			//密码错误
+			printf("账号 %s 的密码错误(错误已反馈)\n",msg.use);
+			send(newfd,aaa,sizeof(aaa),0);
+		}
+		else
+		{	
+			int ato;
+			ato=atoi(dpresult[9]);
+			//比较状态位
+			if(ato==1)
+			{   
+				//重复登录
+				printf("账号 %s 重复登录(错误已反馈)\n",msg.use);
+				char q[N]="重复登录，请重新登录";
+				send(newfd,q,sizeof(q),0);
+			}
+
+			else
+			{
+				//登录成功 
+				msg.state=1;
+				sprintf(ssq,"update root set state=%d where use='%s'",msg.state,msg.use);
+				if(sqlite3_exec(db,ssq,NULL,NULL,&errmsg)==0);
+				{
+					printf("登录状态修改成功\n");
+				}
+				char qq[N]="登录成功";
+				send(newfd,qq,sizeof(qq),0);
+				sqlite3_free_table(dpresult);//释放
+				return 5;
+			}
+
+		}
+	}	
+	
+	
+	return 0;
+	//}}}
+}
+
+//普通管理
+int do_up_login(int newfd,sqlite3 *db,char *name,int *st)
+{
+	//{{{
+	char buf[N]="";
+	char ssq[N]="";
+	char *errmsg=NULL;
+
+	while(1)
+	{
+		bzero(buf,sizeof(buf));
+		int recv_len=recv(newfd,buf,N,0);//读取客户端指令
+		if(recv_len<0)
+		{
+			ERR_LOG("recv");
+			break;
+		}
+		else if(0==recv_len)
+		{
+			printf("退出登录\n");
+			break;
+		}
+		//------------------------------
+		switch(buf[0])
+		{
+		case 'Q':
+			//查信息
+			do_query(newfd,db,name);
+			break;
+		case 'H':
+			//查记录
+		//	do_up_history(newfd,dp,db,name,his);
+			break;
+		case 'E':
+			//退出
+			*st=0;
+			sprintf(ssq,"update user set state=%d where use='%s'",*st,name);
+			if(sqlite3_exec(db,ssq,NULL,NULL,&errmsg)==0);
+			{
+				printf("退出状态修改成功\n");
+			}
+			return -1;
+		}
+	}	
+	
+	
+	return 0;
+	//}}}
+}
+
+
+//查信息
+int do_query(int newfd,sqlite3 *db,char *name)
+{
+	//{{{
+	char english[N]="";
+	bzero(english,sizeof(english));
+	int recv_len=recv(newfd,english,N,0);//读取客户端英文单词
+
+	char *errmsg=NULL;
+	char sql[512]="";
+	char buff[N]="抱歉，该用户没有信息";
+	char **dpresult;
+	int row,column;
+	sprintf(sql,"select *from user where use='%s'",english);
+	if(sqlite3_get_table(db,sql,&dpresult,&row,&column,&errmsg))//查找单词
+	{
+		printf("查询报错\n");
+	}
+	if(row==0)
+	{
+		printf("用户 %s 未找到(错误已反馈)\n",english);
+		send(newfd,buff,sizeof(buff),0);
+	}
+	else
+	{
+		char buf[N]="";
+		char sqll[512]="";
+		time_t curtime;
+		char sqq[N]="查询完毕";
+		int i=1,j=0;
+		strcat(buf,"姓名:");
+		strcat(buf,dpresult[12]);
+		strcat(buf,"   ");
+		strcat(buf,"年龄:");
+		strcat(buf,dpresult[13]);
+		strcat(buf,"   ");
+		strcat(buf,"性别:");
+		strcat(buf,dpresult[14]);
+		strcat(buf,"\n");
+		strcat(buf,"地址:");
+		strcat(buf,dpresult[15]);
+		strcat(buf,"   ");
+		strcat(buf,"电话:");
+		strcat(buf,dpresult[16]);
+		strcat(buf,"   ");
+		strcat(buf,"等级:");
+		strcat(buf,dpresult[17]);
+		strcat(buf,"   ");
+		strcat(buf,"工资:");
+		strcat(buf,dpresult[18]);
+		strcat(buf,"\n");
+		strcat(buf,"\n");
+		//查询完毕
+		send(newfd,buf,sizeof(buf),0);
+
+		}
+	return 0;
+	//}}}
+}
+
+//管理员模式
+int do_up_root(int newfd,sqlite3 *db,char *name,int *st)
+{
+	//{{{
+	
+	char buf[N]="";
+	char ssq[N]="";
+	char *errmsg=NULL;
+
+	while(1)
+	{
+		bzero(buf,sizeof(buf));
+		int recv_len=recv(newfd,buf,N,0);//读取客户端指令
+		if(recv_len<0)
+		{
+			ERR_LOG("recv");
+			break;
+		}
+		else if(0==recv_len)
+		{
+			printf("退出登录\n");
+			break;
+		}
+		//------------------------------
+		switch(buf[0])
+		{
+		case 'Q':
+			//查信息
+			do_query_all(newfd,db,name);
+			break;
+		case 'H':
+			//查记录
+		//	do_up_history(newfd,dp,db,name,his);
+			break;
+		case 'E':
+			//退出
+			*st=0;
+			sprintf(ssq,"update user set state=%d where use='%s'",*st,name);
+			if(sqlite3_exec(db,ssq,NULL,NULL,&errmsg)==0);
+			{
+				printf("退出状态修改成功\n");
+			}
+			return -1;
+		}
+	}	
+	
+	
+	return 0;
+	//}}}
+}
+
+
+//查询所有信息
+int do_query_all(int newfd,sqlite3 *db,char *name)
+{
+	//{{{
+	char *errmsg=NULL;
+	char sql[512]="";
+	char ssq[128]="";
+	char buff[N]="抱歉，该用户没有信息";
+	char **dpresult;
+	char **dpresult1;
+	int row,column;
+	int row1,column1;
+
+	sprintf(sql,"select *from user");
+	if(sqlite3_get_table(db,sql,&dpresult,&row,&column,&errmsg))//查找用户表
+	{
+		printf("查询报错\n");
+	}
+
+	sprintf(ssq,"select *from root");
+	sqlite3_get_table(db,ssq,&dpresult1,&row1,&column1,&errmsg);//查找管理表
+
+	if(row==0)
+	{
+		printf("用户  未找到(错误已反馈)\n");
+		send(newfd,buff,sizeof(buff),0);
+	}
+	else
+	{
+	
+		char buf[128]="";
+		char sqll[512]="";
+		time_t curtime;
+		char sqq[N]="查询完毕";
+		int i=1,j=0;
+		int a=1,c=0;
+
+
+		bzero(buf,sizeof(buf));
+		for(i;i<row+1;i++)
+		{
+
+
+		strcat(buf,"普通用户>> ");
+		strcat(buf,"账号:");
+		strcat(buf,dpresult[i*column+j]);
+		strcat(buf,"   ");
+		strcat(buf,"密码:");
+		strcat(buf,dpresult[i*column+j+1]);
+		strcat(buf,"   ");
+		strcat(buf,"姓名:");
+		strcat(buf,dpresult[i*column+j+2]);
+		strcat(buf,"   ");
+		strcat(buf,"年龄:");
+		strcat(buf,dpresult[i*column+j+3]);
+		strcat(buf,"   ");
+		strcat(buf,"性别:");
+		strcat(buf,dpresult[i*column+j+4]);
+		strcat(buf,"\n");
+		strcat(buf,"	地址:");
+		strcat(buf,dpresult[i*column+j+5]);
+		strcat(buf,"   ");
+		strcat(buf,"电话:");
+		strcat(buf,dpresult[i*column+j+6]);
+		strcat(buf,"   ");
+		strcat(buf,"等级:");
+		strcat(buf,dpresult[i*column+j+7]);
+		strcat(buf,"   ");
+		strcat(buf,"工资:");
+		strcat(buf,dpresult[i*column+j+8]);
+		strcat(buf,"\n");
+		strcat(buf,"\n");
+		//发送信息
+		send(newfd,buf,sizeof(buf),0);
+		bzero(buf,sizeof(buf));
+		}
+		
+
+		bzero(buf,sizeof(buf));
+		for(a;a<row1+1;a++)
+		{
+		strcat(buf,"管理用户>> ");
+		strcat(buf,"账号:");
+		strcat(buf,dpresult[a*column+c]);
+		strcat(buf,"   ");
+		strcat(buf,"密码:");
+		strcat(buf,dpresult[a*column+c+1]);
+		strcat(buf,"   ");
+		strcat(buf,"姓名:");
+		strcat(buf,dpresult[a*column+c+2]);
+		strcat(buf,"   ");
+		strcat(buf,"电话:");
+		strcat(buf,dpresult[a*column+c+3]);
+		strcat(buf,"   ");
+		strcat(buf,"\n");
+		strcat(buf,"\n");
+		//发送信息
+		send(newfd,buf,sizeof(buf),0);
+		bzero(buf,sizeof(buf));
+		}
+		//完毕
+		send(newfd,sqq,sizeof(sqq),0);
+	}
+	
+	return 0;
+	//}}}
+}

@@ -65,6 +65,13 @@ int do_REG(int sfd);
 int do_user(int sfd);
 int do_root(int sfd);
 int do_END(int sfd);
+int do_LOGIN(int sfd);
+int do_userlogin(int sfd);
+int do_rootlogin(int sfd);
+int do_up_login(int sfd);
+int do_query(int sfd);
+int do_up_root(int sfd);
+int do_query_all(int sfd);
 //-----------------------------------------------主函数
 int main(int argc,const char *argv[])
 {
@@ -119,11 +126,7 @@ int main(int argc,const char *argv[])
 			do_REG(sfd);//注册
 			break;
 		case 2:
-		/*	if(5==do_LOGIN(sfd))//登录
-			{
-				do_up_login(sfd);//登录后的功能
-			}
-		*/
+			do_LOGIN(sfd);//登录
 			break;
 		case 3:
 			goto END;//退出
@@ -367,7 +370,7 @@ int do_root(int sfd)
 	//}}}
 }
 
-
+//返回上一级
 int do_END(int sfd)
 {
 	
@@ -382,5 +385,381 @@ int do_END(int sfd)
 	}
 
 	return -1;
+	//}}}
+}
+
+//登录
+int do_LOGIN(int sfd)
+{
+	//{{{
+	char buf[N]="";
+	bzero(buf,sizeof(buf));
+	buf[0]=LOGIN;
+	if(send(sfd,buf,sizeof(buf),0)<0)   //发送协议
+	{
+		ERR_LOG("send");
+		return -1;
+	}
+
+	int choose=0;
+	while(1)
+	{
+		system("clear");
+		choose = 0;
+		printf("-------------------------\n");
+		printf("---- 1.登录普通用户 -----\n");
+		printf("---- 2.登录管理用户 -----\n");
+		printf("---- 3.返回上一级   -----\n");
+		printf("-------------------------\n");
+
+		printf("请输入>>>");
+		scanf("%d",&choose);
+		while(getchar()!=10);
+
+		switch(choose)
+		{
+		case 1:
+			if(5==do_userlogin(sfd))//登录普通用户
+			{
+				do_up_login(sfd);//登录后的功能
+			}
+			break;
+		case 2:
+			if(5==do_rootlogin(sfd))//登录管理用户
+			{
+				do_up_root(sfd);//登陆后的功能
+			}
+			break;
+		case 3:
+			do_END(sfd);//退出
+			return -1;
+
+		default:
+			printf("输入错误\n");
+		}
+
+
+		printf("按任意键清屏>>>");
+		while(getchar()!=10);
+	}
+	return 0;
+	//}}}
+}
+
+
+//登录普通用户
+int do_userlogin(int sfd)
+{
+	//{{{
+	
+	char buf[N]="";
+	int res;
+	MSG msg;
+	char buff[N]="";
+
+	bzero(buf,sizeof(buf));
+	buf[0]=1;
+	if(send(sfd,buf,sizeof(buf),0)<0) //发送协议
+	{
+		ERR_LOG("send");
+		return -1;
+	}
+//-------------------------------------------------------------
+//	MSG msg;
+
+	printf("输入账号>>");
+	scanf("%s",msg.use);
+	while(getchar()!=10);
+
+
+	printf("输入密码>>");
+	scanf("%s",msg.password);
+	while(getchar()!=10);
+
+//	int res;
+	res=send(sfd,&msg,sizeof(msg),0);//发送信息给服务器
+	if(res<0)
+	{
+		ERR_LOG("recv");
+		return -1;
+	}
+
+//	char buff[N]="";
+	recv(sfd,buff,sizeof(buff),0);//读取服务器反馈
+	printf("%s\n",buff);
+	if(strcmp(buff,"登录成功")==0)
+	{
+		return 5;
+	}
+
+	
+	return 0;
+	//}}}
+}
+
+//管理员登录
+int do_rootlogin(int sfd)
+{
+	//{{{
+	
+	char buf[N]="";
+	int res;
+	ROOT msg;
+	char buff[N]="";
+
+	bzero(buf,sizeof(buf));
+	buf[0]=2;
+	if(send(sfd,buf,sizeof(buf),0)<0) //发送协议
+	{
+		ERR_LOG("send");
+		return -1;
+	}
+//-------------------------------------------------------------
+	
+	printf("输入账号>>");
+	scanf("%s",msg.use);
+	while(getchar()!=10);
+
+
+	printf("输入密码>>");
+	scanf("%s",msg.password);
+	while(getchar()!=10);
+
+	res=send(sfd,&msg,sizeof(msg),0);//发送信息给服务器
+	if(res<0)
+	{
+		ERR_LOG("recv");
+		return -1;
+	}
+
+	recv(sfd,buff,sizeof(buff),0);//读取服务器反馈
+	printf("%s\n",buff);
+	if(strcmp(buff,"登录成功")==0)
+	{
+		return 5;
+	}
+	
+	return 0;
+	//}}}
+}
+
+//普通管理
+int do_up_login(int sfd)
+{
+	//{{{
+	int choose=0;
+	char buf[N]="";
+	while(1)
+	{
+		system("clear");
+		choose=0;
+
+		printf("---------------------\n");
+		printf("---- 1.查询信息 -----\n");
+		printf("---- 2.退出登录 -----\n");
+		printf("---------------------\n");
+
+		printf("请输入>>>");
+		scanf("%d",&choose);
+		while(getchar()!=10);
+
+
+		switch(choose)
+		{
+		case 1:
+			//查信息
+			do_query(sfd);
+			break;
+		case 2:
+			//退出
+
+			bzero(buf,sizeof(buf));
+			buf[0]=EXIT;      
+			if(send(sfd,buf,sizeof(buf),0)<0)   //发送协议
+			{
+				ERR_LOG("send");
+				return -1;
+			}
+			printf("退出登录成功\n");
+			return -1;
+		default :
+			printf("输入错误\n");
+
+
+		}
+
+		printf("按任意键清屏>>>");
+		while(getchar()!=10);
+
+	}
+	
+	
+	return 0;
+	//}}}
+}
+
+//查信息
+int do_query(int sfd)
+{
+	//{{{
+	char buf[N]="";
+	bzero(buf,sizeof(buf));
+	buf[0]=QUERY;      
+	if(send(sfd,buf,sizeof(buf),0)<0)   //发送协议
+	{
+		ERR_LOG("send");
+		return -1;
+	}
+	//-----------------------------------------------
+
+	//输入要查询的单词
+	printf("输入要查询的账号>>");
+	char english[N]="";
+	bzero(english,sizeof(english));
+	fgets(english,N,stdin);
+	english[strlen(english)-1]=0;
+
+	if(send(sfd,english,sizeof(english),0)<0)
+	{
+		ERR_LOG("send");
+		return -1;
+	}
+
+
+	char chinese[N]="";
+	int i;
+	int j;
+	while(1)
+	{
+		bzero(chinese,sizeof(chinese));
+		recv(sfd,chinese,N,0); //接受反馈
+		i=strcmp(chinese,"查询完毕");
+		if(i==0)
+		{
+			printf("查询完毕\n");
+			break;
+		}
+		else 
+		{
+			j=strcmp(chinese,"抱歉，该用户没有信息");
+			if(j==0)
+			{
+				printf("抱歉，该用户没有信息\n");
+				break;
+			}
+			else
+				printf("%s\n",chinese);
+
+		}
+		printf("查询完毕\n");
+		return 0;
+	}	
+	
+	
+	return 0;
+	//}}}
+}
+
+
+//管理员模式
+int do_up_root(int sfd)
+{
+	//{{{
+	
+	int choose=0;
+	char buf[N]="";
+	while(1)
+	{
+		system("clear");
+		choose=0;
+
+		printf("---------------------\n");
+		printf("---- 1.查询所有信息 -\n");
+		printf("---- 2.修改信息 -----\n");
+		printf("---- 3.删除信息 -----\n");
+		printf("---- 4.退出登录 -----\n");
+		printf("---------------------\n");
+
+		printf("请输入>>>");
+		scanf("%d",&choose);
+		while(getchar()!=10);
+
+
+		switch(choose)
+		{
+		case 1:
+			//查信息
+			do_query_all(sfd);
+			break;
+		case 2:
+			//退出
+
+			bzero(buf,sizeof(buf));
+			buf[0]=EXIT;      
+			if(send(sfd,buf,sizeof(buf),0)<0)   //发送协议
+			{
+				ERR_LOG("send");
+				return -1;
+			}
+			printf("退出登录成功\n");
+			return -1;
+		default :
+			printf("输入错误\n");
+
+
+		}
+
+		printf("按任意键清屏>>>");
+		while(getchar()!=10);
+
+	}
+	
+	
+	
+	return 0;
+	//}}}
+}
+
+//查询所有信息
+int do_query_all(int sfd)
+{
+	//{{{
+	char buf[N]="";
+	bzero(buf,sizeof(buf));
+	buf[0]=QUERY;      
+	if(send(sfd,buf,sizeof(buf),0)<0)   //发送协议
+	{
+		ERR_LOG("send");
+		return -1;
+	}
+	//-----------------------------------------------
+	
+	char chinese[4096]="";
+	int i;
+	int j;
+	while(1)
+	{
+		bzero(chinese,sizeof(chinese));
+		recv(sfd,chinese,N,0); //接受反馈
+		i=strcmp(chinese,"查询完毕");
+		if(i==0)
+		{
+			printf("查询完毕\n");
+			return -1;
+		}
+		else 
+		{
+			j=strcmp(chinese,"抱歉，该用户没有信息");
+			if(j==0)
+			{
+				printf("抱歉，该用户没有信息\n");
+				break;
+			}
+			else
+				printf("%s\n",chinese);
+
+		}
+	}
+	return 0;
 	//}}}
 }
