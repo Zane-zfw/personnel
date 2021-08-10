@@ -37,6 +37,8 @@
 #define QUERY 'Q' //查询单词
 #define HISTORY 'H' //查询历史
 #define EXIT 'E' //退出
+#define DELE 'D' //删除
+#define UP 'U' //修改
 
 typedef struct{
 	char use[10];//保存账号
@@ -72,6 +74,8 @@ int do_up_login(int sfd);
 int do_query(int sfd);
 int do_up_root(int sfd);
 int do_query_all(int sfd);
+int do_dele_data(int sfd);
+int do_up_data(int sfd);
 //-----------------------------------------------主函数
 int main(int argc,const char *argv[])
 {
@@ -692,6 +696,14 @@ int do_up_root(int sfd)
 			do_query_all(sfd);
 			break;
 		case 2:
+			//修改信息
+			do_up_data(sfd);
+			break;
+		case 3:
+			//删除信息
+			do_dele_data(sfd);
+			break;
+		case 4:
 			//退出
 
 			bzero(buf,sizeof(buf));
@@ -760,6 +772,64 @@ int do_query_all(int sfd)
 
 		}
 	}
+	return 0;
+	//}}}
+}
+
+//删除信息
+int do_dele_data(int sfd)
+{
+	//{{{
+	char buf[N]="";
+	bzero(buf,sizeof(buf));
+	buf[0]=DELE;      
+	if(send(sfd,buf,sizeof(buf),0)<0)   //发送协议
+	{
+		ERR_LOG("send");
+		return -1;
+	}
+	//-----------------------------------------------
+	
+	char chinese[N]="";
+	int i;
+	int j;
+	char uu[10];
+	while(1)
+	{
+		bzero(uu,sizeof(uu));
+		printf("请输入要删除的账户>> ");
+		scanf("%s",uu);
+		while(getchar()!=10);
+
+		send(sfd,uu,sizeof(uu),0);
+
+		bzero(chinese,sizeof(chinese));
+		recv(sfd,chinese,N,0); //接受反馈
+		i=strcmp(chinese,"删除成功");
+		if(i==0)
+		{
+			printf("删除成功\n");
+			return -1;
+		}
+		else 
+		{
+			printf("没有该用户  不必删除\n");
+			return -1;
+		}
+	}
+	
+	
+	return -1;
+	//}}}
+}
+
+//修改信息
+int do_up_data(int sfd)
+{
+	//{{{
+	
+	
+	
 	return 0;
 	//}}}
 }

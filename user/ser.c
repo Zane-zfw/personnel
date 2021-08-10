@@ -32,6 +32,8 @@ typedef void (*sighandler_t)(int);
 #define QUERY 'Q' //查询单词
 #define HISTORY 'H' //查询历史
 #define EXIT 'E' //退出
+#define DELE 'D'//删除
+#define UP 'U'	//修改
 
 
 int up_sqlite3(sqlite3 *);
@@ -47,6 +49,8 @@ int do_up_login(int newfd,sqlite3 *,char *name,int *st);
 int do_query(int newfd,sqlite3 *,char *name);
 int do_up_root(int newfd,sqlite3 *,char *name,int *st);
 int do_query_all(int newfd,sqlite3 *,char *name);
+int do_dele_data(int newfd,sqlite3 *,char *name);
+int do_up_data(int newfd,sqlite3 *,char *name);
 
 //线程需要用到
 typedef struct{         
@@ -734,14 +738,16 @@ int do_up_root(int newfd,sqlite3 *db,char *name,int *st)
 			//查信息
 			do_query_all(newfd,db,name);
 			break;
-		case 'H':
-			//查记录
-		//	do_up_history(newfd,dp,db,name,his);
+		case 'U':
+			do_up_data(newfd,db,name);
+			break;
+		case 'D':
+			do_dele_data(newfd,db,name);
 			break;
 		case 'E':
 			//退出
 			*st=0;
-			sprintf(ssq,"update user set state=%d where use='%s'",*st,name);
+			sprintf(ssq,"update root set state=%d where use='%s'",*st,name);
 			if(sqlite3_exec(db,ssq,NULL,NULL,&errmsg)==0);
 			{
 				printf("退出状态修改成功\n");
@@ -859,6 +865,64 @@ int do_query_all(int newfd,sqlite3 *db,char *name)
 		//完毕
 		send(newfd,sqq,sizeof(sqq),0);
 	}
+	
+	return 0;
+	//}}}
+}
+
+
+//删除信息
+int do_dele_data(int newfd,sqlite3 *db,char *name)
+{
+	//{{{
+	
+	char english[N]="";
+	bzero(english,sizeof(english));
+	int recv_len=recv(newfd,english,N,0);//读取客户段
+
+	char *errmsg=NULL;
+	char sql[512]="";
+	char sqll[512]="";
+	char buff[N]="没有该用户  不必删除";
+	char **dpresult;
+	int row,column;
+
+	sprintf(sqll,"select *from user where use='%s'",english);
+	if(sqlite3_get_table(db,sqll,&dpresult,&row,&column,&errmsg))//查找单词
+	{
+		printf("查询报错\n");
+	}
+	if(row==0)
+	{
+		printf("没有该用户 不必删除\n");
+		send(newfd,buff,sizeof(buff),0);
+	}
+	else
+	{
+
+	sprintf(sql,"delete from user where use = '%s'",english);
+	if(sqlite3_exec(db,sql,NULL,NULL,&errmsg))//删除信息
+	{
+		printf("删除报错\n");
+	}
+		char sqq[N]="删除成功";
+
+		//删除完毕
+		send(newfd,sqq,sizeof(sqq),0);
+		printf("删除成功\n");
+	}
+	
+	return -1;
+	//}}}
+}
+
+
+//修改信息
+int do_up_data(int newfd,sqlite3 *db,char *name)
+{
+	//{{{
+	
+	
 	
 	return 0;
 	//}}}
