@@ -399,6 +399,8 @@ int do_LOGIN(int sfd)
 	char buf[N]="";
 	bzero(buf,sizeof(buf));
 	buf[0]=LOGIN;
+	int j;
+	int i=3;
 	if(send(sfd,buf,sizeof(buf),0)<0)   //发送协议
 	{
 		ERR_LOG("send");
@@ -416,6 +418,7 @@ int do_LOGIN(int sfd)
 		printf("---- 3.返回上一级   -----\n");
 		printf("-------------------------\n");
 
+		--i;
 		printf("请输入>>>");
 		scanf("%d",&choose);
 		while(getchar()!=10);
@@ -423,9 +426,20 @@ int do_LOGIN(int sfd)
 		switch(choose)
 		{
 		case 1:
-			if(5==do_userlogin(sfd))//登录普通用户
+				j=do_userlogin(sfd);
+			if(5==j)//登录普通用户
 			{
 				do_up_login(sfd);//登录后的功能
+			}
+
+			else if(6==j)
+			{
+				printf("还剩 %d 次机会(共3次)\n",i);
+				if(i==0)
+				{
+					return -1;
+				}
+				break;
 			}
 			break;
 		case 2:
@@ -494,6 +508,10 @@ int do_userlogin(int sfd)
 	if(strcmp(buff,"登录成功")==0)
 	{
 		return 5;
+	}
+	else if(strcmp(buff,"密码不正确")==0)
+	{
+		return 6;
 	}
 
 	
@@ -746,7 +764,7 @@ int do_query_all(int sfd)
 	}
 	//-----------------------------------------------
 	
-	char chinese[4096]="";
+	char chinese[256]="";
 	int i;
 	int j;
 	while(1)

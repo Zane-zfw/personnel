@@ -405,6 +405,7 @@ int do_LOGIN(int newfd,sqlite3 *db,char *name,int *st)
 	
 	char buf[N]="";
 	char his[N]="";
+	int j;
 	while(1)
 	{
 		bzero(buf,sizeof(buf));
@@ -423,9 +424,15 @@ int do_LOGIN(int newfd,sqlite3 *db,char *name,int *st)
 		switch(buf[0])
 		{
 		case 1:
-			if(5==do_userlogin(newfd,db,name,st))//登录普通用户
+			j=do_userlogin(newfd,db,name,st);//登录普通用户
+			if(5==j)
 			{
 				do_up_login(newfd,db,name,st);//登陆后的功能
+			}
+
+			else if(6==j)
+			{
+				return -1;
 			}
 			break;
 		case 2:
@@ -460,6 +467,7 @@ int do_userlogin(int newfd,sqlite3 *db,char *name,int *st)
 	char aaa[N]="密码不正确";
 	char **dpresult;
 	int row,column;
+	int ii=1;
 
 	MSG msg;
 
@@ -483,6 +491,13 @@ int do_userlogin(int newfd,sqlite3 *db,char *name,int *st)
 		{
 			//密码错误
 			printf("账号 %s 的密码错误(错误已反馈)\n",msg.use);
+
+			ii++;
+			if(ii==3)
+			{
+				return 6;
+			}
+
 			send(newfd,aaa,sizeof(aaa),0);
 		}
 		else
@@ -770,7 +785,7 @@ int do_query_all(int newfd,sqlite3 *db,char *name)
 {
 	//{{{
 	char *errmsg=NULL;
-	char sql[512]="";
+	char sql[256]="";
 	char ssq[128]="";
 	char buff[N]="抱歉，该用户没有信息";
 	char **dpresult;
@@ -795,78 +810,76 @@ int do_query_all(int newfd,sqlite3 *db,char *name)
 	else
 	{
 	
-		char buf[128]="";
-		char sqll[512]="";
+		char buf[256]="";
+		char sqll[256]="";
+		char bbuf[256]="";
 		time_t curtime;
 		char sqq[N]="查询完毕";
 		int i=1,j=0;
 		int a=1,c=0;
-
 
 		bzero(buf,sizeof(buf));
 		for(i;i<row+1;i++)
 		{
 
 
-		strcat(buf,"普通用户>> ");
-		strcat(buf,"账号:");
-		strcat(buf,dpresult[i*column+j]);
-		strcat(buf,"   ");
-		strcat(buf,"密码:");
-		strcat(buf,dpresult[i*column+j+1]);
-		strcat(buf,"   ");
-		strcat(buf,"姓名:");
-		strcat(buf,dpresult[i*column+j+2]);
-		strcat(buf,"   ");
-		strcat(buf,"年龄:");
-		strcat(buf,dpresult[i*column+j+3]);
-		strcat(buf,"   ");
-		strcat(buf,"性别:");
-		strcat(buf,dpresult[i*column+j+4]);
-		strcat(buf,"\n");
-		strcat(buf,"	地址:");
-		strcat(buf,dpresult[i*column+j+5]);
-		strcat(buf,"   ");
-		strcat(buf,"电话:");
-		strcat(buf,dpresult[i*column+j+6]);
-		strcat(buf,"   ");
-		strcat(buf,"等级:");
-		strcat(buf,dpresult[i*column+j+7]);
-		strcat(buf,"   ");
-		strcat(buf,"工资:");
-		strcat(buf,dpresult[i*column+j+8]);
-		strcat(buf,"\n");
-		strcat(buf,"\n");
-		//发送信息
-		send(newfd,buf,sizeof(buf),0);
-		bzero(buf,sizeof(buf));
+			strcat(buf,"普通用户>> ");
+			strcat(buf,"账号:");
+			strcat(buf,dpresult[i*column+j]);
+			strcat(buf,"   ");
+			strcat(buf,"密码:");
+			strcat(buf,dpresult[i*column+j+1]);
+			strcat(buf,"   ");
+			strcat(buf,"姓名:");
+			strcat(buf,dpresult[i*column+j+2]);
+			strcat(buf,"   ");
+			strcat(buf,"年龄:");
+			strcat(buf,dpresult[i*column+j+3]);
+			strcat(buf,"   ");
+			strcat(buf,"性别:");
+			strcat(buf,dpresult[i*column+j+4]);
+			strcat(buf,"\n");
+			strcat(buf,"	地址:");
+			strcat(buf,dpresult[i*column+j+5]);
+			strcat(buf,"   ");
+			strcat(buf,"电话:");
+			strcat(buf,dpresult[i*column+j+6]);
+			strcat(buf,"   ");
+			strcat(buf,"等级:");
+			strcat(buf,dpresult[i*column+j+7]);
+			strcat(buf,"   ");
+			strcat(buf,"工资:");
+			strcat(buf,dpresult[i*column+j+8]);
+			strcat(buf,"\n");
+			//发送信息
+			send(newfd,buf,sizeof(buf),0);
+			bzero(buf,sizeof(buf));
 		}
-		
-
-		bzero(buf,sizeof(buf));
+	
 		for(a;a<row1+1;a++)
 		{
-		strcat(buf,"管理用户>> ");
-		strcat(buf,"账号:");
-		strcat(buf,dpresult[a*column+c]);
-		strcat(buf,"   ");
-		strcat(buf,"密码:");
-		strcat(buf,dpresult[a*column+c+1]);
-		strcat(buf,"   ");
-		strcat(buf,"姓名:");
-		strcat(buf,dpresult[a*column+c+2]);
-		strcat(buf,"   ");
-		strcat(buf,"电话:");
-		strcat(buf,dpresult[a*column+c+3]);
-		strcat(buf,"   ");
-		strcat(buf,"\n");
-		strcat(buf,"\n");
-		//发送信息
-		send(newfd,buf,sizeof(buf),0);
-		bzero(buf,sizeof(buf));
+			bzero(bbuf,sizeof(bbuf));
+			strcat(bbuf,"管理用户>> ");
+			strcat(bbuf,"账号:");
+			strcat(bbuf,dpresult1[a*column1+c]);
+			strcat(bbuf,"   ");
+			strcat(bbuf,"密码:");
+			strcat(bbuf,dpresult1[a*column1+c+1]);
+			strcat(bbuf,"   ");
+			strcat(bbuf,"姓名:");
+			strcat(bbuf,dpresult1[a*column1+c+2]);
+			strcat(bbuf,"   ");
+			strcat(bbuf,"电话:");
+			strcat(bbuf,dpresult1[a*column1+c+3]);
+			strcat(bbuf,"   ");
+			strcat(bbuf,"\n");
+			//发送信息
+			send(newfd,bbuf,sizeof(bbuf),0);
+			bzero(bbuf,sizeof(bbuf));
 		}
 		//完毕
 		send(newfd,sqq,sizeof(sqq),0);
+		bzero(sqq,sizeof(sqq));
 	}
 	
 	return 0;
@@ -981,13 +994,33 @@ int do_up_data(int newfd,sqlite3 *db,char *name)
 	}
 
 
-	char sqql[512]="";
+	char sqql[128]="";
+	char sqql1[128]="";
+	char sqql2[128]="";
+	char sqql3[128]="";
+	char sqql4[128]="";
+	char sqql5[128]="";
+	char sqql6[128]="";
 	MSG msg;
 	int exe;
 	memset(&msg,0,sizeof(msg));
 	int recv_reg=recv(newfd,&msg,sizeof(msg),0);  //读取客户端的用户信息
-	sprintf(sqql,"update user set name='%s' and age='%d' and sex='%s' and address='%s' and pthone='%d' and level='%s' and money='%d' where use='%s'",\
-																			msg.username,msg.age,msg.sex,msg.address,msg.pthone,msg.level,msg.money,msg.use);
+	//sprintf(sqql,"update user set name='%s' and age='%d' and sex='%s' and address='%s' and pthone='%d' and level='%s' and money='%d' where use='%s'",\
+	//																		msg.username,msg.age,msg.sex,msg.address,msg.pthone,msg.level,msg.money,msg.use);
+	sprintf(sqql,"update user set name='%s' where use='%s'",msg.username,msg.use);
+	sprintf(sqql1,"update user set age='%d' where use='%s'",msg.age,msg.use);
+	sprintf(sqql2,"update user set sex='%s' where use='%s'",msg.sex,msg.use);
+	sprintf(sqql3,"update user set address='%s' where use='%s'",msg.address,msg.use);
+	sprintf(sqql4,"update user set pthone='%d' where use='%s'",msg.pthone,msg.use);
+	sprintf(sqql5,"update user set level='%s' where use='%s'",msg.level,msg.use);
+	sprintf(sqql6,"update user set money='%d' where use='%s'",msg.money,msg.use);
+	sqlite3_exec(db,sqql1,NULL,NULL,&errmsg);
+	sqlite3_exec(db,sqql2,NULL,NULL,&errmsg);
+	sqlite3_exec(db,sqql3,NULL,NULL,&errmsg);
+	sqlite3_exec(db,sqql4,NULL,NULL,&errmsg);
+	sqlite3_exec(db,sqql5,NULL,NULL,&errmsg);
+	sqlite3_exec(db,sqql6,NULL,NULL,&errmsg);
+
 	exe=sqlite3_exec(db,sqql,NULL,NULL,&errmsg);
 	if(exe!=0)
 	{
@@ -1002,7 +1035,6 @@ int do_up_data(int newfd,sqlite3 *db,char *name)
 		//反馈客户端
 		char buf[N]="修改成功";
 		send(newfd,buf,sizeof(buf),0);
-
 		printf("用户 %s  账号 %s 的信息已修改\n",msg.username,msg.use);
 	}
 
